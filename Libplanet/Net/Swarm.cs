@@ -566,7 +566,7 @@ namespace Libplanet.Net
             // blockchain with it.
             BlockChain<T> workspace = initialTip is Block<T> tip
                 ? _blockChain.Fork(tip.Hash)
-                : new BlockChain<T>(_blockChain.Policy, _blockChain.Store, Guid.NewGuid());
+                : new BlockChain<T>(_blockChain.Policy, _blockChain.Store, Guid.NewGuid(), _logger);
 
             var complete = false;
 
@@ -1513,7 +1513,11 @@ namespace Libplanet.Net
             {
                 // Create a whole new chain because the branch point doesn't exist on
                 // the current chain.
-                synced = new BlockChain<T>(blockChain.Policy, blockChain.Store, Guid.NewGuid());
+                synced = new BlockChain<T>(
+                    blockChain.Policy,
+                    blockChain.Store,
+                    Guid.NewGuid(),
+                    _logger);
             }
             else
             {

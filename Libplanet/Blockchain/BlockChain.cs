@@ -14,6 +14,7 @@ using Libplanet.Blocks;
 using Libplanet.Crypto;
 using Libplanet.Store;
 using Libplanet.Tx;
+using Serilog;
 
 [assembly: InternalsVisibleTo("Libplanet.Tests")]
 namespace Libplanet.Blockchain
@@ -28,30 +29,44 @@ namespace Libplanet.Blockchain
             Justification = "Temporary visibility.")]
         internal readonly ReaderWriterLockSlim _rwlock;
         private readonly object _txLock;
+        private readonly ILogger _logger;
 
-        public BlockChain(IBlockPolicy<T> policy, IStore store)
+        public BlockChain(IBlockPolicy<T> policy, IStore store, ILogger logger)
             : this(
                 policy,
                 store,
-                store.GetCanonicalChainId() ?? Guid.NewGuid()
+                store.GetCanonicalChainId() ?? Guid.NewGuid(),
+                logger
             )
         {
         }
 
-        internal BlockChain(IBlockPolicy<T> policy, IStore store, Guid id)
+        internal BlockChain(IBlockPolicy<T> policy, IStore store, Guid id, ILogger logger)
         {
             Id = id;
             Policy = policy;
             Store = store;
+            _logger = logger;
             Blocks = new BlockSet<T>(store);
             Transactions = new TransactionSet<T>(store);
+
+            _logger.Debug(
+                "Blocks: {0}, Tx Keys: {1}, Tx Values: {2}",
+                Blocks.Values,
+                Transactions.Keys,
+                Transactions.Values);
 
             _rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
             _txLock = new object();
 
             if (Store.GetCanonicalChainId() is null)
             {
+                _logger.Debug("Setting canonical chain id to: {0}", id);
                 Store.SetCanonicalChainId(Id);
+            }
+            else
+            {
+                _logger.Warning("Canonical Chain is null");
             }
         }
 
@@ -859,7 +874,7 @@ namespace Libplanet.Blockchain
 
         internal BlockChain<T> Fork(HashDigest<SHA256> point)
         {
-            var forked = new BlockChain<T>(Policy, Store, Guid.NewGuid());
+            var forked = new BlockChain<T>(Policy, Store, Guid.NewGuid(), _logger);
             Guid forkedId = forked.Id;
             try
             {
